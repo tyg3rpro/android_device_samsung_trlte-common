@@ -1574,3 +1574,14 @@ on property:service.bootanim.exit=1
     write /proc/sys/net/ipv6/conf/rmnet_usb2/accept_ra 2
     write /proc/sys/net/ipv6/conf/rmnet_usb3/accept_ra 2
 
+on property:init.svc.sensorservice=running
+    start unblock_wakelock
+
+service unblock_wakelock /system/bin/sh /system/etc/unblock_wakelock.sh
+    class main
+    user root
+    group root
+    disabled
+    oneshot
+
+

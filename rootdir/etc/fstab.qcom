@@ -6,18 +6,18 @@
 # Currently we dont have e2fsck compiled. So fs check would failed.
 
 #<src>                                                <mnt_point>      <type>  <mnt_flags and options>                                                     <fs_mgr_flags>
-/dev/block/platform/msm_sdcc.1/by-name/boot           /boot            emmc    defaults                                                                    recoveryonly
-/dev/block/platform/msm_sdcc.1/by-name/recovery       /recovery        emmc    defaults                                                                    recoveryonly
-/dev/block/platform/msm_sdcc.1/by-name/system         /system          ext4    ro,errors=panic                                                             wait
-/dev/block/platform/msm_sdcc.1/by-name/userdata       /data            f2fs    nosuid,nodev,noatime,rw,inline_xattr                                        wait,check,formattable,encryptable=footer,length=-16384
-/dev/block/platform/msm_sdcc.1/by-name/userdata       /data            ext4    nosuid,nodev,noatime,noauto_da_alloc,journal_async_commit,errors=panic      wait,check,formattable,encryptable=footer,length=-16384
-/dev/block/platform/msm_sdcc.1/by-name/cache          /cache           f2fs    nosuid,nodev,noatime,rw,inline_xattr                                        wait,check,formattable
-/dev/block/platform/msm_sdcc.1/by-name/cache          /cache           ext4    nosuid,nodev,barrier=1                                                      wait,check,formattable
-/dev/block/platform/msm_sdcc.1/by-name/apnhlos        /firmware        vfat    ro,shortname=lower,uid=1000,gid=1000,dmask=222,fmask=333,context=u:object_r:firmware_file:s0  wait
-/dev/block/platform/msm_sdcc.1/by-name/modem          /firmware-modem  vfat    ro,shortname=lower,uid=1000,gid=1000,dmask=222,fmask=333,context=u:object_r:firmware_file:s0  wait
-/dev/block/platform/msm_sdcc.1/by-name/efs            /efs             ext4    nosuid,nodev,noatime,noauto_da_alloc,journal_async_commit,errors=panic      wait,check
-/dev/block/platform/msm_sdcc.1/by-name/pad            /misc            emmc    defaults                                                                    defaults
-
+/dev/mmcblk0p17                                 /boot            emmc    defaults                                                                    recoveryonly
+/dev/mmcblk0p18                                 /recovery        emmc    defaults                                                                    recoveryonly
+/dev/mmcblk0p24                                 /system          ext4    ro,errors=panic                                                             wait
+#/dev/mmcblk0p27                                 /data            f2fs    nosuid,nodev,noatime,rw,inline_xattr                                        wait,check,formattable,encryptable=footer,length=-16384
+/dev/mmcblk0p27                                 /data            ext4    nosuid,nodev,noatime,noauto_da_alloc,journal_async_commit,errors=panic      wait,check,formattable,encryptable=footer,length=-16384
+#/dev/mmcblk0p25                                 /cache           f2fs    nosuid,nodev,noatime,rw,inline_xattr                                        wait,check,formattable
+/dev/mmcblk0p25                                 /cache           ext4    nosuid,nodev,barrier=1                                                      wait,check,formattable
+/dev/mmcblk0p1                                  /firmware        vfat    ro,shortname=lower,uid=1000,gid=1000,dmask=222,fmask=333 wait
+/dev/mmcblk0p2                                  /firmware-modem  vfat    ro,shortname=lower,uid=1000,gid=1000,dmask=222,fmask=333 wait
+/dev/mmcblk0p13                                 /efs             ext4    nosuid,nodev,noatime,noauto_da_alloc,journal_async_commit,errors=panic      wait,check
+/dev/mmcblk0p11                                 /misc            emmc    defaults                                                                    defaults
+   
 # VOLD
 /devices/msm_sdcc.2/mmc_host/mmc1*                    auto 	       auto    defaults                                                                    voldmanaged=sdcard1:auto,encryptable=userdata
 

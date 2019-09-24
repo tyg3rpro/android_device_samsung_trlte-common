@@ -5,6 +5,7 @@ PRODUCT_PROPERTY_OVERRIDES += \
     persist.audio.fluence.voicerec=false \
     ro.qc.sdk.audio.fluencetype=fluence \
     use.voice.path.for.pcm.voip=false \
+    ro.qc.sensors.wl_dis=true \
     use.dedicated.device.for.voip=true \
     audio.offload.buffer.size.kb=32 \
     av.offload.enable=true \
@@ -120,3 +121,6 @@ PRODUCT_PROPERTY_OVERRIDES += \
 # AptX
 PRODUCT_PROPERTY_OVERRIDES += \
     persist.bt.enableAptXHD=true
+
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/rootdir/etc/unblock_wakelock.sh:system/etc/unblock_wakelock.sh

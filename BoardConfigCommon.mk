@@ -65,7 +65,7 @@ TARGET_SPECIFIC_HEADER_PATH := device/samsung/trlte-common/include
 
 # Kernel
 BOARD_KERNEL_BASE := 0x00000000
-BOARD_KERNEL_CMDLINE := console=null androidboot.hardware=qcom user_debug=23 msm_rtb.filter=0x3b7 dwc3_msm.cpu_to_affin=1 zcache.enabled=1 zcache.compressor=lz4
+BOARD_KERNEL_CMDLINE := console=tty0 selinux=0 androidboot.hardware=qcom user_debug=23 msm_rtb.filter=0x3b7 dwc3_msm.cpu_to_affin=1 zcache.enabled=1 zcache.compressor=lz4
 BOARD_KERNEL_PAGESIZE := 4096
 BOARD_KERNEL_SEPARATED_DT := true
 BOARD_RAMDISK_OFFSET     := 0x02600000
