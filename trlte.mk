@@ -276,3 +276,18 @@ PRODUCT_PROPERTY_OVERRIDES += \
 
 # Common Qualcomm
 $(call inherit-product, device/samsung/qcom-common/qcom-common.mk)
+
+# Ubuntu Overlay Files
+#
+PRODUCT_COPY_FILES += \
+    device/samsung/trlte-common/ubuntu/70-trltetmo.rules:system/halium/lib/udev/rules.d/70-android.rules \
+    device/samsung/trlte-common/ubuntu/70-trltetmo.rules:system/halium/usr/lib/lxc-android-config/70-android.rules \
+    device/samsung/trlte-common/ubuntu/android.conf:system/halium/etc/ubuntu-touch-session.d/android.conf \
+    device/samsung/trlte-common/ubuntu/config.xml:system/halium/usr/share/powerd/device_configs/config-default.xml \
+    device/samsung/trlte-common/ubuntu/config.xml:system/halium/usr/share/powerd/device_configs/config-trlte-common.xml \
+    device/samsung/trlte-common/ubuntu/ofono.override:system/halium/etc/init/ofono.override \
+    $(LOCAL_PATH)/ubuntu/apparmor.d/local/usr.bin.media-hub-server:system/halium/etc/apparmor.d/local/usr.bin.media-hub-server \
+    $(LOCAL_PATH)/ubuntu/apparmor.d/usr.bin.messaging-app:system/halium/etc/apparmor.d/usr.bin.messaging-app \
+    $(LOCAL_PATH)/ubuntu/apparmor.d/usr.bin.morph-browser:system/halium/etc/apparmor.d/usr.bin.morph-browser \
+    $(LOCAL_PATH)/ubuntu/apparmor.d/abstractions/base:system/halium/etc/apparmor.d/abstractions/base 
+
