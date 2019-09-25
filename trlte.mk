@@ -106,8 +106,7 @@ PRODUCT_PACKAGES += \
     bt_stack.conf \
     bt_did.conf \
     auto_pair_devlist.conf \
-    iot_devlist.conf \
-    init_wlan_bt.sh
+    iot_devlist.conf
 
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/configs/iop_bt.db:/system/etc/bluetooth/iop_bt.db
