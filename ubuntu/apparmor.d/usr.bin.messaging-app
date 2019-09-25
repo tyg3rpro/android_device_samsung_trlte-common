@@ -1,0 +1,919 @@
+# vim:syntax=apparmor
+
+#include <tunables/global>
+
+# Specified profile variables
+@{APP_ID_DBUS}="messaging_2dapp"
+@{APP_PKGNAME_DBUS}="messaging_2dapp"
+@{APP_PKGNAME}="com.ubuntu.messaging-app"
+
+profile "messaging-app" "/usr/bin/messaging-app" (attach_disconnected) {
+  #include <abstractions/base>
+  #include <abstractions/fonts>
+  #include <abstractions/X>
+
+  # Apps fail to start when linked against newer curl/gnutls if we don't allow
+  # this. (LP: #1350152)
+  #include <abstractions/openssl>
+
+  # Mir-specific stuff
+  #include <abstractions/mir>
+
+  # Needed by native GL applications on Mir
+  owner /{,var/}run/user/*/mir_socket rw,
+
+  # Hardware-specific accesses
+  #include "/usr/share/apparmor/hardware/graphics.d"
+
+  #
+  # IPC rules common for all apps
+  #
+  # Allow connecting to session bus and where to connect to services
+  #include <abstractions/dbus-session-strict>
+
+  # Allow connecting to system bus and where to connect to services. Put these
+  # here so we don't need to repeat these rules in multiple places (actual
+  # communications with any system services is mediated elsewhere). This does
+  # allow apps to brute-force enumerate system services, but our system
+  # services aren't a secret.
+  #include <abstractions/dbus-strict>
+
+  # Unity shell
+  dbus (send)
+       bus=session
+       path="/BottomBarVisibilityCommunicator"
+       interface="org.freedesktop.DBus.{Introspectable,Properties}"
+       peer=(name=com.canonical.Shell.BottomBarVisibilityCommunicator,label=unconfined),
+  dbus (receive)
+       bus=session
+       path="/BottomBarVisibilityCommunicator"
+       interface="com.canonical.Shell.BottomBarVisibilityCommunicator"
+       peer=(label=unconfined),
+
+
+  # Unity HUD
+  dbus (send)
+       bus=session
+       path="/com/canonical/hud"
+       interface="org.freedesktop.DBus.Properties"
+       member="GetAll"
+       peer=(label=unconfined),
+  dbus (send)
+       bus=session
+       path="/com/canonical/hud"
+       interface="com.canonical.hud"
+       member="RegisterApplication"
+       peer=(label=unconfined),
+  dbus (receive, send)
+       bus=session
+       path=/com/canonical/hud/applications/@{APP_ID_DBUS}*
+       peer=(label=unconfined),
+  dbus (receive)
+       bus=session
+       path="/com/canonical/hud/publisher*"
+       interface="org.gtk.Menus"
+       member="Start"
+       peer=(label=unconfined),
+  dbus (receive)
+       bus=session
+       path="/com/canonical/hud/publisher*"
+       interface="org.gtk.Menus"
+       member="End"
+       peer=(label=unconfined),
+  dbus (send)
+       bus=session
+       path="/com/canonical/hud/publisher*"
+       interface="org.gtk.Menus"
+       member="Changed"
+       peer=(name=org.freedesktop.DBus,label=unconfined),
+  dbus (receive)
+       bus=session
+       path="/com/canonical/unity/actions"
+       interface=org.gtk.Actions
+       member={DescribeAll,Activate}
+       peer=(label=unconfined),
+  dbus (send)
+       bus=session
+       path="/com/canonical/unity/actions"
+       interface=org.gtk.Actions
+       member=Changed
+       peer=(name=org.freedesktop.DBus,label=unconfined),
+  dbus (receive)
+       bus=session
+       path="/context_*"
+       interface=org.gtk.Actions
+       member="DescribeAll"
+       peer=(label=unconfined),
+  dbus (receive)
+       bus=session
+       path="/com/canonical/hud"
+       interface="com.canonical.hud"
+       member="UpdatedQuery"
+       peer=(label=unconfined),
+  dbus (receive)
+       bus=session
+       interface="com.canonical.hud.Awareness"
+       member="CheckAwareness"
+       peer=(label=unconfined),
+
+  # on screen keyboard (OSK)
+  dbus (send)
+       bus=session
+       path="/org/maliit/server/address"
+       interface="org.freedesktop.DBus.Properties"
+       member=Get
+       peer=(name=org.maliit.server,label=unconfined),
+  unix (connect, receive, send)
+       type=stream
+       peer=(addr="@/tmp/maliit-server/dbus-*"),
+
+  # clipboard (LP: #1371170)
+  dbus (receive, send)
+       bus=session
+       path="/com/canonical/QtMir/Clipboard"
+       interface="com.canonical.QtMir.Clipboard"
+       peer=(label=unconfined),
+  dbus (receive, send)
+       bus=session
+       path="/com/canonical/QtMir/Clipboard"
+       interface="org.freedesktop.DBus.{Introspectable,Properties}"
+       peer=(label=unconfined),
+
+  # usensors
+  dbus (send)
+       bus=session
+       path=/com/canonical/usensord/haptic
+       interface=com.canonical.usensord.haptic
+       peer=(label=unconfined),
+
+  # URL dispatcher. All apps can call this since:
+  # a) the dispatched application is launched out of process and not
+  #    controllable except via the specified URL
+  # b) the list of url types is strictly controlled
+  # c) the dispatched application will launch in the foreground over the
+  #    confined app
+  dbus (send)
+       bus=session
+       path="/com/canonical/URLDispatcher"
+       interface="com.canonical.URLDispatcher"
+       member="DispatchURL"
+       peer=(label=unconfined),
+
+  # This is needed when the app is already running and needs to be passed in
+  # a URL to open. This is most often used with content-hub providers and
+  # url-dispatcher, but is actually supported by Qt generally (though because
+  # we don't allow the send a malicious app can't send this to another app).
+  dbus (receive)
+       bus=session
+       path=/@{APP_ID_DBUS}
+       interface="org.freedesktop.Application"
+       member="Open"
+       peer=(label=unconfined),
+
+  # This is needed for apps to interact with the Launcher (eg, for the counter)
+  dbus (receive, send)
+       bus=session
+       path=/com/canonical/unity/launcher/@{APP_ID_DBUS}
+       peer=(label=unconfined),
+
+  # Untrusted Helpers are 3rd party apps that run in a different confinement
+  # context and are in a separate Mir session from the calling app (eg, an
+  # app that uses a content provider from another app). These helpers use
+  # Trusted Prompt Sessions to overlay their window over the calling app and
+  # need to get the Mir socket that was setup by the associated trusted helper
+  # (eg, content-hub). Typical consumers are content-hub providers,
+  # pay-service, url-dispatcher and possibly online-accounts.
+  # LP: #1462492 - this rule is suboptimal and should not be needed once we
+  # move to socket activation or FD passing
+  dbus (receive, send)
+       path=/com/canonical/UbuntuAppLaunch/@{APP_ID_DBUS}/*
+       interface="com.canonical.UbuntuAppLaunch.SocketDemangler"
+       member="GetMirSocket"
+       bus=session
+       peer=(label=unconfined),
+  # Allow access to the socket-demangler (needed for the above)
+  /usr/lib/@{multiarch}/ubuntu-app-launch/socket-demangler rmix,
+
+  # TODO: finetune this
+  dbus (send)
+       bus=session
+       peer=(name=org.a11y.Bus,label=unconfined),
+  dbus (receive)
+       bus=session
+       interface=org.a11y.atspi**
+       peer=(label=unconfined),
+  dbus (receive, send)
+       bus=accessibility
+       peer=(label=unconfined),
+
+  # Deny potentially dangerous access
+  deny dbus bus=session
+            path=/com/canonical/[Uu]nity/[Dd]ebug**,
+  audit deny dbus bus=session
+                  interface="com.canonical.snapdecisions",
+  deny dbus (send)
+       bus=session
+       interface="org.gnome.GConf.Server",
+
+  # LP: #1433590
+  deny dbus bus=system
+            path="/org/freedesktop/Accounts",
+
+  # LP: #1378823
+  deny dbus (bind)
+       name="org.freedesktop.Application",
+
+  # Allow access to the PasteBoard
+  dbus (receive, send)
+       bus=session
+       interface="com.ubuntu.content.dbus.Service"
+       path="/"
+       member="CreatePaste"
+       peer=(label=unconfined),
+  dbus (receive, send)
+       bus=session
+       interface="com.ubuntu.content.dbus.Service"
+       path="/"
+       member="GetPasteData"
+       peer=(label=unconfined),
+  dbus (receive, send)
+       bus=session
+       interface="com.ubuntu.content.dbus.Service"
+       path="/"
+       member="GetLatestPasteData"
+       peer=(label=unconfined),
+  dbus (receive, send)
+       bus=session
+       interface="com.ubuntu.content.dbus.Service"
+       path="/"
+       member="PasteFormats"
+       peer=(label=unconfined),
+  dbus (receive)
+       bus=session
+       interface="com.ubuntu.content.dbus.Service"
+       path="/"
+       member="PasteFormatsChanged"
+       peer=(label=unconfined),
+
+  #
+  # end DBus rules common for all apps
+  #
+
+  # Don't allow apps to access scope endpoints
+  audit deny /run/user/[0-9]*/zmq/   rw,
+  audit deny /run/user/[0-9]*/zmq/** rwk,
+
+  # Explicitly deny dangerous access
+  audit deny /dev/input/** rw,
+  deny /dev/fb0 rw, # don't use 'audit' since it is too noisy with the camera
+  deny /dev/tty rw,
+
+  # LP: #1378115
+  /run/user/[0-9]*/dconf/user rw,
+  owner @{HOME}/.config/dconf/user r,
+  deny /custom/etc/dconf_profile r,
+
+  # LP: #1381620
+  deny @{HOME}/.cache/QML/Apps/ r,
+
+  # subset of GNOME stuff
+  /{,custom/}usr/share/icons/**              r,
+  /{,custom/}usr/share/themes/**             r,
+  /etc/pango/*                               r,
+  /usr/lib{,32,64}/pango/**                  mr,
+  /usr/lib/@{multiarch}/pango/**             mr,
+  /usr/share/icons/*/index.theme             rk,
+  /usr/share/unity/icons/**                  r,
+  /usr/share/thumbnailer/icons/**            r,
+
+  # /custom access
+  /custom/xdg/data/themes/                   r,
+  /custom/xdg/data/themes/**                 r,
+  /custom/usr/share/fonts/                   r,
+  /custom/usr/share/fonts/**                 r,
+
+  # ibus read accesses
+  /usr/lib/@{multiarch}/gtk-2.0/[0-9]*/immodules/im-ibus.so mr,
+  owner @{HOME}/.config/ibus/      r,
+  owner @{HOME}/.config/ibus/bus/  r,
+  owner @{HOME}/.config/ibus/bus/* r,
+  deny  @{HOME}/.config/ibus/bus/  w, # noisy and unneeded
+
+  # subset of freedesktop.org
+  /usr/share/mime/**                 r,
+  owner @{HOME}/.local/share/mime/** r,
+  owner @{HOME}/.config/user-dirs.dirs r,
+
+  /usr/share/glib*/schemas/gschemas.compiled r,
+
+  # various /proc entries (be careful to not allow things that can be used to
+  # enumerate installed apps-- this will be easier once we have a PID kernel
+  # var in AppArmor)
+  @{PROC}/interrupts r,
+  owner @{PROC}/cmdline r,
+  owner @{PROC}/[0-9]*/auxv r,
+  owner @{PROC}/[0-9]*/fd/ r,
+  owner @{PROC}/[0-9]*/status r,
+  owner @{PROC}/[0-9]*/task/ r,
+  owner @{PROC}/[0-9]*/task/[0-9]*/ r,
+  # FIXME: this leaks running process. Is it actually required? AppArmor kernel
+  # var could solve this
+  owner @{PROC}/[0-9]*/cmdline r,
+
+  # libhybris
+  /{,var/}run/shm/hybris_shm_data rw, # FIXME: LP: #1226569 (make app-specific)
+  /usr/lib/@{multiarch}/libhybris/**.so mr,
+  /{,android/}system/build.prop r,
+  # These libraries can be in any of:
+  #  /vendor/lib{,64}
+  #  /system/lib{,64}
+  #  /system/vendor/lib{,64}
+  #  /android/vendor/lib{,64}
+  #  /android/system/lib{,64}
+  #  /android/system/vendor/lib{,64}
+  #  /odm/lib{,64}
+  #  /android/odm/lib{,64}
+  /{,android/}vendor/lib{,64}/**           r,
+  /{,android/}vendor/lib{,64}/**.so        m,
+  /{,android/}system/lib{,64}/**           r,
+  /{,android/}system/lib{,64}/**.so        m,
+  /{,android/}system/vendor/lib{,64}/**    r,
+  /{,android/}system/vendor/lib{,64}/**.so m,
+  /{,android/}odm/lib{,64}/**    r,
+  /{,android/}odm/lib{,64}/**.so m,
+
+  # attach_disconnected path
+  /dev/socket/property_service rw,
+
+  # Android logging triggered by platform. Can safely deny
+  # LP: #1197124
+  deny /dev/log_main w,
+  deny /dev/log_radio w,
+  deny /dev/log_events w,
+  deny /dev/log_system w,
+  # LP: #1352432
+  deny /dev/xLog w,
+  deny @{PROC}/xlog/  r,
+  deny @{PROC}/xlog/* rw,
+
+  # Lttng tracing. Can safely deny. LP: #1260491
+  /{,var/}run/shm/lttng-ust-* r,
+
+  # TODO: investigate
+  deny /dev/cpuctl/apps/tasks w,
+  deny /dev/cpuctl/apps/bg_non_interactive/tasks w,
+
+  /sys/devices/system/cpu/ r,
+  /sys/kernel/debug/tracing/trace_marker w,
+  # LP: #1286162
+  /etc/udev/udev.conf r,
+  /sys/devices/pci[0-9]*/**/uevent r,
+  # Not required, but noisy
+
+  #
+  # thumbnailing helper
+  #
+  /usr/lib/@{multiarch}/thumbnailer/vs-thumb ixr,
+  deny @{HOME}/.cache/tncache-write-text.null w, # silence access test
+  # FIXME: this leaks running process. AppArmor kernel var could solve this
+  owner @{PROC}/[0-9]*/attr/current r,
+  # Allow communications with thumbnailer for thumbnailing local files
+  dbus (send)
+       bus=session
+       interface="org.freedesktop.DBus.Introspectable"
+       path="/com/canonical/Thumbnailer"
+       member="Introspect"
+       peer=(label=unconfined),
+  dbus (send)
+       bus=session
+       path="/com/canonical/Thumbnailer"
+       interface="com.canonical.Thumbnailer"
+       member={GetThumbnail,ClientConfig}
+       peer=(label=unconfined),
+
+  #
+  # apps may always use vibrations
+  #
+  /sys/class/timed_output/vibrator/enable rw,
+  /sys/devices/virtual/timed_output/vibrator/enable rw,
+
+  #
+  # apps may always use the accelerometer and orientation sensor
+  #
+  /etc/xdg/QtProject/Sensors.conf r,
+
+  #
+  # qmlscene
+  #
+  /usr/share/qtchooser/ r,
+  /usr/share/qtchooser/** r,
+  /usr/lib/@{multiarch}/qt5/bin/qmlscene ixr,
+  /usr/lib/qt5/bin/qmlscene ixr,
+
+  owner @{HOME}/.config/{UITK,ubuntu-ui-toolkit}/theme.ini rk,
+  audit deny @{HOME}/.config/{UITK,ubuntu-ui-toolkit}/theme.ini w,
+
+  #
+  # cordova-ubuntu
+  #
+  /usr/share/cordova-ubuntu*/      r,
+  /usr/share/cordova-ubuntu*/**    r,
+
+  # Launching under upstart requires this
+  /usr/bin/qtchooser rmix,
+  /usr/bin/cordova-ubuntu* rmix,
+
+  /usr/lib/@{multiarch}/gstreamer*/gstreamer*/gst-plugin-scanner rix,
+
+  # click frameworks
+  /usr/share/click/frameworks/  r,
+  /usr/share/click/frameworks/* r,
+
+  # GStreamer binary registry - hybris pulls this in for everything now, not
+  # just audio
+  owner @{HOME}/.gstreamer*/registry.*.bin*       r,
+  deny @{HOME}/.gstreamer*/registry.*.bin*        w,
+  deny @{HOME}/.gstreamer*/                       w,
+  owner @{HOME}/.cache/gstreamer*/registry.*.bin* r,
+  deny @{HOME}/.cache/gstreamer*/registry.*.bin*  w,
+  deny @{HOME}/.cache/gstreamer*/                 w,
+  # gstreamer writes JIT compiled code in the form of orcexec.* files. Various
+  # locations are tried so silence the ones we won't permit anyway
+  deny /tmp/orcexec* w,
+  deny /{,var/}run/user/*/orcexec* w,
+  deny @{HOME}/orcexec* w,
+
+  /{,android/}system/etc/media_codecs.xml r,
+  /etc/wildmidi/wildmidi.cfg r,
+
+  # Don't allow plugins in webviews for now
+  deny /usr/lib/@{multiarch}/qt5/libexec/QtWebPluginProcess rx,
+
+  # cordova-ubuntu wants to runs lsb_release, which is a python program and we
+  # don't want to give access to that. cordova-ubuntu will fallback to
+  # examining /etc/lsb-release directly, which is ok. If needed, we can lift
+  # the denial and ship a profile for lsb_release and add a Pxr rule
+  deny /usr/bin/lsb_release rx,
+  /etc/ r,
+  /etc/lsb-release r,
+
+  #
+  # Application install dirs
+  #
+
+
+  # Packages shipped as debs have their install directory in /usr/share
+  /usr/share/@{APP_PKGNAME}/ r,
+  /usr/share/@{APP_PKGNAME}/** mrklix,
+
+  #
+  # Application writable dirs
+  #
+
+  # FIXME: LP: #1197060, LP: #1377648 (don't remove until qtwebkit is off the
+  #        image)
+  owner /{dev,run}/shm/WK2SharedMemory.[0-9]* rwk,
+
+  # FIXME: LP: #1370218
+  owner /{dev,run}/shm/shmfd-* rwk,
+
+  # Allow writes to various (application-specific) XDG directories
+  owner @{HOME}/.cache/@{APP_PKGNAME}/                  rw,      # subdir of XDG_CACHE_HOME
+  owner @{HOME}/.cache/@{APP_PKGNAME}/**                mrwkl,
+  owner @{HOME}/.config/@{APP_PKGNAME}/                 rw,      # subdir of XDG_CONFIG_HOME
+  owner @{HOME}/.config/@{APP_PKGNAME}/**               mrwkl,
+  owner @{HOME}/.local/share/@{APP_PKGNAME}/            rw,      # subdir of XDG_DATA_HOME
+  owner @{HOME}/.local/share/@{APP_PKGNAME}/**          mrwklix,
+  owner /{,var/}run/user/*/@{APP_PKGNAME}/              rw,      # subdir of XDG_RUNTIME_DIR
+  owner /{,var/}run/user/*/@{APP_PKGNAME}/**            mrwkl,
+  owner /{,var/}run/user/*/confined/@{APP_PKGNAME}/     rw,      # subdir of XDG_RUNTIME_DIR (for TMPDIR)
+  owner /{,var/}run/user/*/confined/@{APP_PKGNAME}/**   mrwkl,
+
+  # Allow writes to application-specific QML cache directories
+  owner @{HOME}/.cache/QML/Apps/messaging-app/   rw,
+  owner @{HOME}/.cache/QML/Apps/messaging-app/** mrwkl,
+
+  # Specified abstractions
+  #include <abstractions/user-tmp>
+
+  # Rules specified via policy groups
+  # Description: Can use Online Accounts.
+  # Usage: common
+  /usr/share/accounts/** r,
+  
+  dbus (receive, send)
+       bus=session
+       path=/com/google/code/AccountsSSO/SingleSignOn
+       interface=com.google.code.AccountsSSO.SingleSignOn.AuthService
+       peer=(label=unconfined),
+  dbus (receive, send)
+       bus=session
+       path=/com/google/code/AccountsSSO/SingleSignOn{,/**}
+       interface=org.freedesktop.DBus.Properties
+       peer=(label=unconfined),
+  dbus (receive, send)
+       bus=session
+       interface=com.google.code.AccountsSSO.SingleSignOn.AuthSession
+       peer=(label=unconfined),
+  dbus (receive, send)
+       bus=session
+       interface=com.google.code.AccountsSSO.SingleSignOn.Identity
+       peer=(label=unconfined),
+  dbus (receive, send)
+       bus=session
+       interface=com.ubuntu.OnlineAccountsUi
+       peer=(label=unconfined),
+  dbus (receive)
+       bus=session
+       interface=com.google.code.AccountsSSO.Accounts
+       peer=(label=unconfined),
+  
+  # p2p support uses a named unix socket, available only to unconfined apps.
+  deny /{,var/}run/user/*/signond/socket rw,
+  
+  # read access to accounts.db is ok
+  owner @{HOME}/.config/libaccounts-glib/accounts.db* rk,
+  # FIXME: LP: #1220713 - online accounts currently tries rw and falls back to
+  #        ro. This can go away once an access() LSM hook is implemented. For
+  #        now, just silence the denial.
+  deny @{HOME}/.config/libaccounts-glib/accounts.db* w,
+  
+  # apps will dereference the symlinks in this directory to access their own
+  # accounts provider (which is in an app-specific directory). This is not an
+  # information leak on its own because users of this policy group have read
+  # access to accounts.db.
+  owner @{HOME}/.local/share/accounts/** r,
+  
+  # Note: this API should *not* be allowed to normal apps, only the
+  # webapp-container. As such, we can't explicitly deny access here but it is
+  # listed as a comment to make sure it isn't accidentally added in the future.
+  # audit deny dbus (receive, send)
+  #                 bus=session
+  #                 interface=com.nokia.singlesignonui
+  #                 member=cookiesForIdentity,
+  
+  # Online Accounts v2 API
+  dbus (receive, send)
+       bus=session
+       interface=com.ubuntu.OnlineAccounts.Manager
+       peer=(label=unconfined),
+
+  # Description: Can play audio (allows playing remote content via media-hub)
+  # Usage: common
+  /dev/ashmem rw,
+  
+  # Don't include the audio abstraction and enforce use of pulse instead
+  /etc/pulse/ r,
+  /etc/pulse/* r,
+  /{run,dev}/shm/                    r,  # could allow enumerating apps
+  owner /{run,dev}/shm/pulse-shm*    rk,
+  owner /{run,dev}/shm/pulse-shm*     w,
+  owner @{HOME}/.pulse-cookie        rk,
+  owner @{HOME}/.pulse/              r,
+  owner @{HOME}/.pulse/*             rk,
+  owner /{,var/}run/user/*/pulse/       r,
+  owner /{,var/}run/user/*/pulse/       w,   # shouldn't be needed, but rmdir fail otherwise
+  owner /{,var/}run/user/*/pulse/native rwk, # cli and dbus-socket should not be
+                                             # used by confined apps
+  owner @{HOME}/.config/pulse/cookie rk,
+  
+  # Force the use of pulseaudio and silence any denials for ALSA
+  deny /usr/share/alsa/alsa.conf r,
+  deny /dev/snd/ r,
+  deny /dev/snd/* r,
+  
+  # Allow communications with media-hub
+  dbus (receive, send)
+       bus=session
+       path=/core/ubuntu/media/Service{,/**}
+       peer=(label="{unconfined,/usr/bin/media-hub-server}"),
+  
+  # Allow communications with thumbnailer for retrieving album art
+  dbus (send)
+       bus=session
+       interface="org.freedesktop.DBus.Introspectable"
+       path="/com/canonical/Thumbnailer"
+       member="Introspect"
+       peer=(label=unconfined),
+  dbus (send)
+       bus=session
+       path="/com/canonical/Thumbnailer"
+       member={GetAlbumArt,GetArtistArt,ClientConfig}
+       peer=(label=unconfined),
+  
+  # Allow communications with mediascanner2
+  dbus (send)
+       bus=session
+       path=/com/canonical/MediaScanner2
+       interface=com.canonical.MediaScanner2
+       peer=(label="{unconfined,/usr/bin/mediascanner-service*}"),
+  dbus (receive)
+       bus=session
+       peer=(label="{unconfined,/usr/bin/mediascanner-service*}"),
+  
+  # sound files on the device
+  /usr/share/sounds/ r,
+  /usr/share/sounds/** r,
+  /custom/usr/share/sounds/ r,
+  /custom/usr/share/sounds/** r,
+  
+  # Hardware-specific accesses
+  #include "/usr/share/apparmor/hardware/audio.d"
+
+  # Description: Can access contacts. This policy group is reserved for vetted
+  #  applications only in this version of the policy. Once LP: #1227821 is
+  #  fixed, this can be moved out of reserved status.
+  # Usage: reserved
+  dbus (receive, send)
+       bus=session
+       path=/com/canonical/pim/AddressBook
+       peer=(label=unconfined),
+  dbus (receive, send)
+       bus=session
+       path=/com/canonical/pim/AddressBookView/**
+       peer=(label=unconfined),
+  
+  # LP: #1319546. Apps shouldn't talk directly to sync-monitor, but allow it for
+  # now for trusted apps until sync-monitor is integrated with push
+  # notifications. IMPORTANT: this policy group cannot be moved to 'common'
+  # status until this rule is removed.
+  dbus (receive, send)
+       bus=session
+       path=/com/canonical/SyncMonitor{,/**}
+       peer=(label=unconfined),
+
+  # Description: Can request/import data from other applications
+  # Usage: common
+  dbus (send)
+       bus=session
+       interface=org.freedesktop.DBus
+       path=/org/freedesktop/DBus
+       member=RequestName
+       peer=(label=unconfined),
+  dbus (bind)
+       bus=session
+       name=com.ubuntu.content.handler.@{APP_ID_DBUS},
+  dbus (receive)
+       bus=session
+       path=/com/ubuntu/content/handler/@{APP_ID_DBUS}
+       interface=com.ubuntu.content.dbus.Handler
+       peer=(label=unconfined),
+  dbus (receive, send)
+       bus=session
+       interface=com.ubuntu.content.dbus.Transfer
+       path=/transfers/@{APP_ID_DBUS}/import/*
+       peer=(label=unconfined),
+  dbus (receive, send)
+       bus=session
+       interface=com.ubuntu.content.dbus.Service
+       peer=(label=unconfined),
+  
+  # LP: #1293771
+  # Since fd delegation doesn't exist in the form that we need it at this time,
+  # content-hub will create hard links in ~/.cache/@{APP_PKGNAME}/HubIncoming/
+  # for volatile data. As such, apps should not have write access to anything in
+  # this directory otherwise they would be able to change the source content.
+  deny @{HOME}/.cache/@{APP_PKGNAME}/HubIncoming/** w,
+
+  # Description: Can provide/export data to other applications
+  # Usage: common
+  dbus (send)
+       bus=session
+       interface=org.freedesktop.DBus
+       path=/org/freedesktop/DBus
+       member=RequestName
+       peer=(label=unconfined),
+  dbus (bind)
+       bus=session
+       name=com.ubuntu.content.handler.@{APP_ID_DBUS},
+  dbus (receive)
+       bus=session
+       path=/com/ubuntu/content/handler/@{APP_ID_DBUS}
+       interface=com.ubuntu.content.dbus.Handler
+       peer=(label=unconfined),
+  dbus (receive, send)
+       bus=session
+       interface=com.ubuntu.content.dbus.Transfer
+       path=/transfers/@{APP_ID_DBUS}/export/*
+       peer=(label=unconfined),
+  dbus (receive, send)
+       bus=session
+       interface=com.ubuntu.content.dbus.Service
+       peer=(label=unconfined),
+
+  # Description: Can access the history-service. This policy group is reserved
+  #  for vetted applications only in this version of the policy. A future
+  #  version of the policy may move this out of reserved status.
+  # Usage: reserved
+  dbus (send)
+       bus=session
+       path=/com/canonical/HistoryService
+       peer=(name=com.canonical.HistoryService,label=unconfined),
+  dbus (receive)
+       bus=session
+       path=/com/canonical/HistoryService
+       peer=(label=unconfined),
+  dbus (send)
+       bus=session
+       path=/com/canonical/HistoryService/**
+       peer=(name=com.canonical.HistoryService,label=unconfined),
+  dbus (receive)
+       bus=session
+       path=/com/canonical/HistoryService/**
+       peer=(label=unconfined),
+  
+  owner @{HOME}/.local/share/history-service/attachments/** r,
+
+  # Description: Can access the microphone
+  # Usage: common
+  # Don't include the audio abstraction and enforce use of pulse instead
+  /etc/pulse/ r,
+  /etc/pulse/* r,
+  /{run,dev}/shm/                    r,  # could allow enumerating apps
+  owner /{run,dev}/shm/pulse-shm*    rk,
+  owner /{run,dev}/shm/pulse-shm*     w,
+  owner @{HOME}/.pulse-cookie        rk,
+  owner @{HOME}/.pulse/              r,
+  owner @{HOME}/.pulse/*             rk,
+  owner /{,var/}run/user/*/pulse/       r,
+  owner /{,var/}run/user/*/pulse/       w,   # shouldn't be needed, but rmdir fail otherwise
+  owner /{,var/}run/user/*/pulse/native rwk, # cli and dbus-socket should not be
+                                             # used by confined apps
+  owner @{HOME}/.config/pulse/cookie rk,
+  
+  # QAudioRecorder needs this. We might have to allow this later, but for now
+  # just silence the denial
+  
+  # gstreamer - should these be application specific?
+  owner @{HOME}/.gstreamer*/registry.*.bin* r,
+  deny @{HOME}/.gstreamer*/registry.*.bin* w,
+  deny @{HOME}/.gstreamer*/                w,
+  # gstreamer writes JIT compiled code in the form of orcexec.* files. Various
+  # locations are tried so silence the ones we won't permit anyway
+  deny /tmp/orcexec* w,
+  deny /{,var/}run/user/*/orcexec* w,
+  deny @{HOME}/orcexec* w,
+  
+  # Force the use of pulseaudio and silence any denials for ALSA
+  deny /usr/share/alsa/alsa.conf r,
+  deny /dev/snd/ r,
+  deny /dev/snd/* r,
+
+  # Description: Can play video (allows playing remote content via media-hub)
+  # Usage: common
+  # android-based access. Remove once move away from binder (LP: #1197134)
+  /dev/binder rw,
+  /dev/ashmem rw,
+  
+  # gstreamer - should these be application specific?
+  owner @{HOME}/.gstreamer*/registry.*.bin*       r,
+  owner @{HOME}/.cache/gstreamer*/registry.*.bin* r,
+  deny @{HOME}/.gstreamer*/registry.*.bin*        w,
+  deny @{HOME}/.cache/gstreamer*/registry.*.bin*  w,
+  deny @{HOME}/.gstreamer*/                       w,
+  deny @{HOME}/.cache/gstreamer*/                 w,
+  # gstreamer writes JIT compiled code in the form of orcexec.* files. Various
+  # locations are tried so silence the ones we won't permit anyway
+  deny /tmp/orcexec* w,
+  deny /{,var/}run/user/*/orcexec* w,
+  
+  # Allow communications with media-hub
+  dbus (receive, send)
+       bus=session
+       path=/core/ubuntu/media/Service{,/**}
+       peer=(label="{unconfined,/usr/bin/media-hub-server}"),
+  
+  # Allow communications with mediascanner2
+  dbus (send)
+       bus=session
+       path=/com/canonical/MediaScanner2
+       interface=com.canonical.MediaScanner2
+       peer=(label="{unconfined,/usr/bin/mediascanner-service*}"),
+  dbus (receive)
+       bus=session
+       peer=(label="{unconfined,/usr/bin/mediascanner-service*}"),
+  
+  # converged desktop
+  #include <abstractions/video>
+  /dev/video*                         r,
+  /sys/devices/**/video4linux/video** r,
+  
+  # Hardware-specific accesses
+  #include "/usr/share/apparmor/hardware/video.d"
+
+  # Specified read permissions
+  /custom/xdg/data/dconf/ rk,
+  /custom/xdg/data/dconf/** rk,
+  /usr/share/*/assets/ rk,
+  /usr/share/*/assets/** rk,
+  /usr/share/applications/ rk,
+  /usr/share/applications/** rk,
+  /usr/share/messaging-app/ rk,
+  /usr/share/messaging-app/** rk,
+  @{HOME}/.cache/messaging-app/HubIncoming rk,
+  owner @{HOME}/.cache/messaging-app/HubIncoming/** rk,
+  owner @{HOME}/.config/dconf/user rk,
+  @{HOME}/.local/share/evolution/addressbook/*/photos/ rk,
+  owner @{HOME}/.local/share/evolution/addressbook/*/photos/** rk,
+
+  # No write paths specified
+
+  /sys/class/ r,
+  /sys/class/input/ r,
+  /run/udev/data/** r,
+
+  /dev/dri/ r,
+  /sys/devices/pci[0-9]*/**/config r,
+  @{HOME}/.local/share/history-service/attachments/** r,
+
+  # Description: Can access the telephony-service and related services
+  # Usage: reserved
+
+  # grant full access to telephony service handler and indicator
+  dbus (receive, send)
+       bus=session
+       peer=(name=com.canonical.TelephonyServiceHandler,label=unconfined),
+
+  dbus (receive, send)
+       bus=session
+       peer=(name=com.canonical.TelephonyServiceIndicator,label=unconfined),
+
+  dbus bind
+       bus=session
+       name=com.canonical.MessagingApp,
+
+  # make it possible for apps to register a telepathy observer
+  dbus bind
+       bus=session
+       name=org.freedesktop.Telepathy.Client.*,
+
+  dbus (send)
+       interface="org.freedesktop.Notifications"
+       member="GetServerInformation",
+
+  dbus (send)
+       interface="org.freedesktop.Notifications"
+       member="Notify",
+
+  # query greeter status
+  dbus (receive, send)
+       bus=session
+       peer=(name=com.canonical.UnityGreeter,label=unconfined),
+
+  # access to telepathy-ofono and other telepathy clients/managers
+  dbus (receive, send)
+       bus=session
+       path=/org/freedesktop/Telepathy/**,
+
+  dbus (send)
+       bus=session
+       path="/ca/desrt/dconf/Writer/user"
+       interface="ca.desrt.dconf.Writer",
+
+  # used to query ringtone files and other properties
+  dbus (receive, send)
+       bus=system
+       path="/org/freedesktop/Accounts/User[0-9]*"
+       interface=org.freedesktop.DBus.Properties,
+
+  dbus (receive, send)
+       bus=session
+       path="/org/freedesktop/DBus"
+       interface=org.freedesktop.DBus,
+
+  # used by libtelephony-service to order/query existing modems
+  dbus (send)
+       bus=system
+       interface="org.ofono.Manager",
+
+  # used by apps to get sim contacts
+  dbus (send)
+       bus=system
+       interface="org.ofono.SimManager",
+
+  dbus (send)
+       bus=system
+       interface="org.ofono.Modem",
+
+  dbus (send, receive)
+       bus=session
+       peer=(name=com.meego.msyncd,label=unconfined),
+
+  # used by telepathy-qt to guess existing managers and their features
+  /usr/share/telepathy/managers/* r,
+  # read protocol files and assets
+  /usr/share/telephony-service/** r,
+
+  # lyo: Attemped workaround for apparmor denials
+  /usr/lib/arm-linux-gnueabihf/qt5/qml/QtGraphicalEffects/* m,
+  # Description: Can access urfkill
+  # Usage: common
+  #include <abstractions/nameservice>
+
+  allow dbus (receive, send)
+       bus=system
+       path=/org/freedesktop/URfkill,
+  allow dbus (receive, send)
+       bus=system
+       peer=(name=org.freedesktop.URfkill),
+}
