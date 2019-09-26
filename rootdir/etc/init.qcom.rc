@@ -43,6 +43,11 @@ on early-init
     mkdir /firmware-modem 0771 system system
     symlink /data/tombstones /tombstones
 
+    #lyo: potential workaround for cpuset errors?
+    mkdir /dev/cpuset 0777 system system
+    mount -t cpuset cpuset /dev/cpuset
+    mkdir /sys 0777 system system
+    mount -t sysfs sysfs /sys
 on init
     mkdir /efs 0771 system radio
 
@@ -212,7 +217,7 @@ on post-fs-data
     chmod 2770 /data/system/perfd
 
     # Create /data/time folder for time-services
-    mkdir /data/time/ 0700 system system
+    mkdir /data/time/ 0777 system system
 
     mkdir /data/bluetooth 0770 bluetooth bluetooth
     # Enable the setgid bit on the directory
@@ -222,7 +227,7 @@ on post-fs-data
     mkdir /data/nfc 0770 nfc nfc
     mkdir /data/nfc/param 0770 nfc nfc
 
-    mkdir /data/audio/ 0770 media audio
+    mkdir /data/audio/ 0777 media audio
 
     # Enable the setgid bit on the directory
     chmod 2770 /data/audio
@@ -386,7 +391,7 @@ on boot
     # if already exist
     chown radio system /efs/bluetooth
     chmod 0775 /efs/bluetooth
-    setprop ro.bt.bdaddr_path "/efs/bluetooth/bt_addr"
+    setprop ro.bt.bdaddr_path "/var/lib/lxc/android/rootfs/efs"
     chown bluetooth net_bt_stack ro.bt.bdaddr_path
     chown radio net_bt_stack /efs/bluetooth/bt_addr
     chmod 0640 /efs/bluetooth/bt_addr
@@ -700,6 +705,8 @@ on boot
     chmod 0660 /sys/class/lcd/panel/alpm
     chown system system /sys/class/lcd/panel/alpm_backlight
     chmod 0660 /sys/class/lcd/panel/alpm_backlight
+    mkdir /dev/cpuset 0777 system system
+    mount cpuset cpuset /dev/cpuset
 
     # Auto Brightness
     chown system system  /sys/class/backlight/panel/auto_brightness
@@ -1184,7 +1191,7 @@ on boot
     chown system system /sys/class/input/input18/enabled
 
     # Permissions for bluetooth.
-    setprop ro.bt.bdaddr_path "/efs/bluetooth/bt_addr"
+    setprop ro.bt.bdaddr_path "/var/lib/lxc/android/rootfs/efs"
     chown bluetooth net_bt_stack ro.bt.bdaddr_path
     chown radio net_bt_stack /efs/bluetooth/bt_addr
     chmod 0640 /efs/bluetooth/bt_addr
@@ -1271,6 +1278,7 @@ service qmuxd /system/bin/qmuxd
     class core
     user root
     group radio audio bluetooth gps diag log
+    writepid /dev/cpuset/system-background/tasks
 
 service mdm_helper /system/bin/mdm_helper
     class core
@@ -1344,6 +1352,7 @@ service loc_launcher /system/bin/loc_launcher
     #loc_launcher will start as root and set its uid to gps
     class late_start
     group gps inet net_raw diag net_admin wifi
+    disabled
 
 on property:init.svc.macloader=stopped
     chown system root /data/.cid.info
@@ -1584,4 +1593,23 @@ service unblock_wakelock /system/bin/sh /system/etc/unblock_wakelock.sh
     disabled
     oneshot
 
+# lyo: not sure if these will help, saw in other repos
 
+service miniafservice /system/bin/miniafservice
+    class core
+    user root
+    group audio
+    
+service minimedia /system/bin/minimediaservice
+    class main
+    user media
+    group audio camera
+    ioprio rt 4
+#   hack to make recorded video playback work
+    setenv LD_PRELOAD /system/lib/libOmxVdec.so
+
+service init_setup_first_boot /system/bin/sh /system/etc/init_setup_first_boot.sh
+    class main
+    user root
+    group root
+    oneshot

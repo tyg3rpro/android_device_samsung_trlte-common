@@ -1,0 +1,4 @@
+# Galaxy Note 4 S-Pen
+evdev:name:sec_e-pen*
+ EVDEV_ABS_00=::234
+ EVDEV_ABS_01=::328
