@@ -122,5 +122,12 @@ PRODUCT_PROPERTY_OVERRIDES += \
 PRODUCT_PROPERTY_OVERRIDES += \
     persist.bt.enableAptXHD=true
 
+PRODUCT_PROPERTY_OVERRIDES += \
+# Settings for droidmedia
+    camera.fifo.disable=1
+    persist.camera.shutter.disable=1
+    persist.media.metrics.enabled=0
+
+
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/rootdir/etc/unblock_wakelock.sh:system/etc/unblock_wakelock.sh

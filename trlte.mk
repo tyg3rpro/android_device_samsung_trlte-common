@@ -292,5 +292,6 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/ubuntu/timekeeper.conf:system/halium/etc/init/timekeeper.conf \
     $(LOCAL_PATH)/ubuntu/etc/udev/hwdb.bin:system/halium/etc/udev/hwdb.bin \
     $(LOCAL_PATH)/ubuntu/etc/udev/hwdb.d/99-sec_e-pen.hwdb:system/halium/etc/udev/hwdb.d/99-sec_e-pen.hwdb \
+    $(LOCAL_PATH)/ubuntu/touch.pa:system/halium/etc/pulse/touch.pa \
+    $(LOCAL_PATH)/ubuntu/anbox-tool:system/halium/usr/bin/anbox-tool \
     $(LOCAL_PATH)/ubuntu/apparmor.d/abstractions/base:system/halium/etc/apparmor.d/abstractions/base
-
