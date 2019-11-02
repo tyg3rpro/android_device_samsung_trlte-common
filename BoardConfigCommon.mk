@@ -112,6 +112,8 @@ TARGET_USES_QCOM_BSP := true
 
 # Radio
 BOARD_RIL_CLASS := ../../../device/samsung/trlte-common/ril
+BOARD_PROVIDES_LIBRIL := true
+TARGET_RIL_VARIANT := caf
 
 # Recovery
 TARGET_RECOVERY_FSTAB := device/samsung/trlte-common/rootdir/etc/fstab.qcom

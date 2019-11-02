@@ -229,7 +229,12 @@ PRODUCT_PROPERTY_OVERRIDES += \
 # Radio
 PRODUCT_PACKAGES += \
     libcnefeatureconfig \
-    libprotobuf-cpp-full
+    libprotobuf-cpp-full \
+    libsecnativefeature
+
+# RMNET
+PRODUCT_PACKAGES += \
+    librmnetctl
 
 # Ramdisk
 PRODUCT_PACKAGES += \

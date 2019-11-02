@@ -81,7 +81,9 @@ PRODUCT_PROPERTY_OVERRIDES += \
 
 # Ril
 PRODUCT_PROPERTY_OVERRIDES += \
-    ro.telephony.ril_class=trlteRIL
+    ro.telephony.ril_class=trlteRIL \
+    rild.libpath=/system/lib/libsec-ril.so \
+    ro.ril.telephony.mqanelements=6
 
 # Ril sends only one RIL_UNSOL_CALL_RING, so set call_ring.multiple to false
 PRODUCT_PROPERTY_OVERRIDES += \
