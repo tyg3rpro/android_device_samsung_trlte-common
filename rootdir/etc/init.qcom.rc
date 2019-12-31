@@ -43,6 +43,26 @@ on early-init
     mkdir /firmware-modem 0771 system system
     symlink /data/tombstones /tombstones
 
+# Tyger: LEDs and Autobrightness changes
+    # Auto Brightness
+    chown system system  /sys/class/backlight/panel/auto_brightness
+    chmod 0660 /sys/class/backlight/panel/auto_brightness
+    chmod 0666 /sys/class/backlight/panel/brightness
+ 
+    # Permissions for svc led
+    chown system system /sys/class/sec/led/led_r
+    chown system system /sys/class/sec/led/led_g
+    chown system system /sys/class/sec/led/led_b
+    chown system system /sys/class/sec/led/led_pattern
+    chown system system /sys/class/sec/led/led_blink
+    chown system system /sys/class/sec/led/led_lowpower
+    chmod 0666 /sys/class/sec/led/led_r
+    chmod 0666 /sys/class/sec/led/led_g
+    chmod 0666 /sys/class/sec/led/led_b
+    chmod 0666 /sys/class/sec/led/led_pattern
+    chmod 0666 /sys/class/sec/led/led_blink
+    chmod 0666 /sys/class/sec/led/led_lowpower
+
     #lyo: potential workaround for cpuset errors?
     mkdir /dev/cpuset 0777 system system
     mount -t cpuset cpuset /dev/cpuset
