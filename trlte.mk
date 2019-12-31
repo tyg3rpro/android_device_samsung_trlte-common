@@ -287,6 +287,8 @@ $(call inherit-product, device/samsung/qcom-common/qcom-common.mk)
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/ubuntu/70-trltetmo.rules:system/halium/lib/udev/rules.d/70-android.rules \
     $(LOCAL_PATH)/ubuntu/70-trltetmo.rules:system/halium/usr/lib/lxc-android-config/70-android.rules \
+    $(LOCAL_PATH)/ubuntu/BT/trlte:system/halium/usr/share/bluetooth-touch/trlte \
+    $(LOCAL_PATH)/ubuntu/BT/bluetooth-touch-android.conf:system/halium/etc/init/bluetooth-touch-android.conf \
     $(LOCAL_PATH)/ubuntu/librmnetctl.so:system/lib/librmnetctl.so \
     $(LOCAL_PATH)/ubuntu/android.conf:system/halium/etc/ubuntu-touch-session.d/android.conf \
     $(LOCAL_PATH)/ubuntu/config.xml:system/halium/usr/share/powerd/device_configs/config-default.xml \
