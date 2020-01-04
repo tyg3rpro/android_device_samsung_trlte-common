@@ -120,6 +120,9 @@ TARGET_RECOVERY_FSTAB := device/samsung/trlte-common/rootdir/etc/fstab.qcom
 TARGET_USERIMAGES_USE_EXT4 := true
 TARGET_USERIMAGES_USE_F2FS := true
 
+# Rotation
+MINIMEDIA_SENSORSERVER_DISABLE := 1
+
 # SELinux
 include device/qcom/sepolicy/sepolicy.mk
 

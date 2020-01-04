@@ -89,6 +89,9 @@ PRODUCT_PACKAGES += \
     libqcomvoiceprocessing \
     libqcomvoiceprocessingdescriptors \
     mixer_paths.xml \
+    media_codecs.xml \
+    miniafservice \
+    minimediaservice \
     tinymix
 
 PRODUCT_COPY_FILES += \

@@ -63,6 +63,19 @@ on early-init
     chmod 0666 /sys/class/sec/led/led_blink
     chmod 0666 /sys/class/sec/led/led_lowpower
 
+service minimedia /system/bin/minimediaservice
+    class main
+    user media
+    group audio camera
+    ioprio rt 4
+#   hack to make recorded video playback work
+    setenv LD_PRELOAD /system/lib/libOmxVdec.so
+    
+service miniafservice /system/bin/miniafservice
+    class core
+    user root
+    group audio
+
     #lyo: potential workaround for cpuset errors?
     mkdir /dev/cpuset 0777 system system
     mount -t cpuset cpuset /dev/cpuset
