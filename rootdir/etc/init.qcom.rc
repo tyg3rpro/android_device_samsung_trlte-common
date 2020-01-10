@@ -1282,11 +1282,12 @@ service thermal-engine /system/vendor/bin/thermal-engine
     socket thermal-recv-passive-client stream 0666 system system
     group root
 
-service timekeep /system/bin/timekeep restore
-    class late_start
-    user root
-    group root
-    oneshot
+# Tygerpro: Disable timekeep service
+#service timekeep /system/bin/timekeep restore
+#    class late_start
+#    user root
+#    group root
+#    oneshot
 
 service audiod /system/bin/audiod
     class late_start
@@ -1616,7 +1617,6 @@ on property:service.bootanim.exit=1
     write /proc/sys/net/ipv6/conf/rmnet_usb1/accept_ra 2
     write /proc/sys/net/ipv6/conf/rmnet_usb2/accept_ra 2
     write /proc/sys/net/ipv6/conf/rmnet_usb3/accept_ra 2
-
 
 
 # lyo: not sure if these will help, saw in other repos
