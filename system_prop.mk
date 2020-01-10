@@ -131,5 +131,4 @@ PRODUCT_PROPERTY_OVERRIDES += \
     persist.media.metrics.enabled=0
 
 
-PRODUCT_COPY_FILES += \
-    $(LOCAL_PATH)/rootdir/etc/unblock_wakelock.sh:system/etc/unblock_wakelock.sh
+
