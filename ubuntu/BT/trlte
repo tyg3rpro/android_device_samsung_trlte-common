@@ -4,9 +4,9 @@
 PATCHRAM_ARGS="--patchram /vendor/firmware/bcm4358A1_V0054.0095.hcd \
                --enable_hci \
                --enable_lpm \
+               --no2bytes \
+               --tosleep 1000 \
                --baudrate 3000000 --use_baudrate_for_download"
-#               --tosleep 1000 \
-#               --no2bytes \
 #               --scopcm=0,4,0,0,0,0,0,3,0,0 \
 #               --bd_addr $BDADDR"
 

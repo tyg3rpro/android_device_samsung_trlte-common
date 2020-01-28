@@ -285,6 +285,11 @@ PRODUCT_PROPERTY_OVERRIDES += \
 # Common Qualcomm
 $(call inherit-product, device/samsung/qcom-common/qcom-common.mk)
 
+# Ubuntu In Call Audio
+PRODUCT_PROPERTY_OVERRIDES += \
+    ro.t-o.quirk.forcesink=sink.primary \
+    ro.t-o.quirk.forcesource=source.primary 
+
 # Ubuntu Overlay Files
 #
 PRODUCT_COPY_FILES += \
