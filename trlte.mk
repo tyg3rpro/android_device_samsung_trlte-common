@@ -249,6 +249,13 @@ PRODUCT_PACKAGES += \
     init.sec.boot.sh \
     ueventd.qcom.rc
 
+# Recovery
+PRODUCT_PACKAGES += \
+    recovery.fstab \
+    init.recovery.qcom.rc \
+    init.recovery.qcom.usb.rc \
+    ueventd.recovery.qcom.rc
+
 # Shims
 PRODUCT_PACKAGES += \
     libril_shim \
